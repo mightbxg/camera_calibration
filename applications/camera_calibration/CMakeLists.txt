@@ -126,29 +126,6 @@ set(CAMERA_CALIBRATION_SRC
   src/camera_calibration/util.cc
   src/camera_calibration/util.h
 )
-if(CMAKE_CUDA_COMPILER)
-  list(APPEND CAMERA_CALIBRATION_SRC
-    src/camera_calibration/bundle_adjustment/cuda_joint_optimization.cc
-    src/camera_calibration/bundle_adjustment/cuda_joint_optimization.cu
-    src/camera_calibration/bundle_adjustment/cuda_joint_optimization.cuh
-    src/camera_calibration/bundle_adjustment/cuda_joint_optimization.h
-
-    src/camera_calibration/cuda/cuda_matrix.cuh
-    src/camera_calibration/cuda/cuda_util.cuh
-
-    src/camera_calibration/feature_detection/cuda_refinement_by_matching.cc
-    src/camera_calibration/feature_detection/cuda_refinement_by_matching.cu
-    src/camera_calibration/feature_detection/cuda_refinement_by_matching.cuh
-    src/camera_calibration/feature_detection/cuda_refinement_by_matching.h
-    src/camera_calibration/feature_detection/cuda_refinement_by_symmetry.cc
-    src/camera_calibration/feature_detection/cuda_refinement_by_symmetry.cu
-    src/camera_calibration/feature_detection/cuda_refinement_by_symmetry.cuh
-    src/camera_calibration/feature_detection/cuda_refinement_by_symmetry.h
-    src/camera_calibration/feature_detection/cuda_util.cu
-    src/camera_calibration/feature_detection/cuda_util.cuh
-  )
-endif()
-
 add_library(camera_calibration_baselib SHARED
   ${CAMERA_CALIBRATION_SRC}
 )
@@ -161,8 +138,6 @@ target_compile_options(camera_calibration_baselib
     #       that it might be because the Eigen objects passed to opengv might
     #       be compiled to have different layouts then.
     $<$<COMPILE_LANGUAGE:CXX>:-march=native>
-#       $<$<COMPILE_LANGUAGE:CUDA>:-use_fast_math>
-    $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr>
 )
 target_include_directories(camera_calibration_baselib PRIVATE
   src
@@ -172,18 +147,6 @@ target_include_directories(camera_calibration_baselib PRIVATE
   ${realsense_INCLUDE_DIR}
   ${OpenCV_INCLUDE_DIRS}
 )
-if(CMAKE_CUDA_COMPILER)
-  if (CMAKE_CUDA_COMPILER_VERSION VERSION_LESS 11)
-    target_include_directories(camera_calibration_baselib PRIVATE
-      third_party/cub-1.8.0
-    )
-  endif()
-  target_link_libraries(camera_calibration_baselib PUBLIC
-    libvis_cuda
-    CUDA::cublas
-  )
-endif()
-
 target_link_libraries(camera_calibration_baselib PUBLIC
   libvis
   libvis_external_io
@@ -205,14 +168,6 @@ if (TARGET StructurePrebuilt)
   )
   target_compile_definitions(camera_calibration_baselib PUBLIC HAVE_STRUCTURE)
 endif()
-
-# # For cuda-memcheck
-# target_compile_options(camera_calibration_baselib
-#   PUBLIC
-#     $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler -rdynamic>
-#     $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>
-# )
-
 
 # Main executable
 add_executable(camera_calibration
@@ -248,7 +203,6 @@ add_executable(camera_calibration_test
   src/camera_calibration/test/central_opencv_test.cc
   src/camera_calibration/test/central_radial_test.cc
   src/camera_calibration/test/central_thin_prism_fisheye_test.cc
-  src/camera_calibration/test/dummy_cuda_file.cu
   src/camera_calibration/test/feature_detection_test.cc
   src/camera_calibration/test/io_test.cc
   src/camera_calibration/test/main.cc

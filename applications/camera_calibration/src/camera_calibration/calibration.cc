@@ -209,21 +209,7 @@ void RunBundleAdjustment(
     for (int iteration = 0; iteration < max_iteration_count; ++ iteration) {
       double cost;
       
-      if (use_cuda) {
-        if (localize_only) {
-          LOG(ERROR) << "localize_only is not supported for CUDA-based optimization currently";
-        }
-        OptimizationReport report = CudaOptimizeJointly(
-            *dataset,
-            state,
-            /*max_iteration_count*/ 1,
-            /*int max_inner_iterations*/ 50,  // TODO: tune
-            lambda,
-            numerical_diff_delta,
-            regularization_weight,
-            &lambda);
-        cost = report.final_cost;
-      } else {
+      {
         cost = OptimizeJointly(
             *dataset,
             state,

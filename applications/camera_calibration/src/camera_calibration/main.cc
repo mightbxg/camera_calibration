@@ -268,6 +268,8 @@ int LIBVIS_QT_MAIN(int argc, char** argv) {
   // ### Stereo depth estimation ###
   bool stereo_depth_estimation = cmd_parser.Flag(
       "--stereo_depth_estimation", "Run dense stereo depth estimation on some images of a camera rig with a given calibration.");
+  if(stereo_depth_estimation)
+      throw runtime_error("stereo_depth_estimation not supported");
   
   vector<string> images;
   cmd_parser.NamedParameter(
@@ -412,8 +414,6 @@ int LIBVIS_QT_MAIN(int argc, char** argv) {
     return RenderSyntheticDataset(argv[0], synthetic_dataset_files);
   } else if (intersect_datasets) {
     return WrapQtEventLoopAround([&](int /*argc*/, char** /*argv*/) {return IntersectDatasets(dataset_files, intersection_threshold);}, argc, argv);
-  } else if (stereo_depth_estimation) {
-    return WrapQtEventLoopAround([&](int /*argc*/, char** /*argv*/) {return StereoDepthEstimation(state_directory, images, output_directory);}, argc, argv);
   } else if (compare_point_clouds) {
     return WrapQtEventLoopAround([&](int /*argc*/, char** /*argv*/) {return ComparePointClouds(stereo_directory_target, stereo_directory_source, output_directory);}, argc, argv);
   } else if (create_legends) {

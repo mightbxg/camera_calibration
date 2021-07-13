@@ -430,24 +430,7 @@ void TestOptimizeJointly(bool use_cuda, SchurMode schur_mode, int num_cameras) {
   double last_cost = numeric_limits<double>::infinity();
   double lambda = -1;
   for (int i = 0; i < 20 * num_cameras; ++ i) {
-    if (use_cuda) {
-      OptimizationReport report = CudaOptimizeJointly(
-          dataset,
-          &state,
-          /*max_iteration_count*/ 1,
-          /*int max_inner_iterations*/ 50,  // TODO: tune
-          lambda,
-          /*numerical_diff_delta*/ 0.0001,  // TODO: test changing this
-          /*regularization_weight*/ 0,
-          &lambda,
-          /*debug_verify_cost*/ false,
-          kDebugFixPoints,
-          kDebugFixPoses,
-          kDebugFixRigPoses,
-          kDebugFixIntrinsics,
-          /*print_progress*/ true);
-      last_cost = report.final_cost;
-    } else {
+    {
       bool performed_an_iteration;
       last_cost = OptimizeJointly(
           dataset,

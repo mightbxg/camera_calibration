@@ -27,40 +27,6 @@ include(CheckLanguage)
 ################################################################################
 # Dependencies.
 
-# CUDA (external)
-# NOTE: The user of this CMake file should set the CUDA arch when invoking
-#       CMake, for example with: -DCMAKE_CUDA_FLAGS="-arch=sm_61"
-#       Common settings are either the 'native' arch for which the binary will
-#       be known to run on exclusively, or a broader set of PTX architectures
-#       in case the binary is intended for distribution.
-check_language(CUDA)
-if (CMAKE_CUDA_COMPILER)
-  enable_language(CUDA)
-  
-  # Enable C++14 globally for CUDA code
-  if(NOT DEFINED CMAKE_CUDA_STANDARD)
-    set(CMAKE_CUDA_STANDARD 14)
-    set(CMAKE_CUDA_STANDARD_REQUIRED ON)
-  endif()
-  
-  # Find CUDA libraries (in particular: cublas)
-  find_package(CUDAToolkit REQUIRED)
-  
-  # It is very important that CUDA's nvcc uses exactly the same gcc version and
-  # flags as is used for other C++ code. Otherwise, it can happen that classes
-  # have different layouts as seen by code compiled by nvcc's gcc and by the
-  # other used gcc, which leads to memory-corruption type bugs. See e.g.:
-  # https://devtalk.nvidia.com/default/topic/1024953/linking-problem-due-to-different-size-of-std-string/
-  # ccbin must be set to the full path, otherwise there is the possibility that
-  # nvcc searches in the wrong location first according to the linked forum
-  # posts above.
-  if (NOT MSVC)
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -ccbin=${CMAKE_CXX_COMPILER}")
-  else()
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}")
-  endif()
-endif()
-
 # Cross-platform threading. See:
 # https://cmake.org/cmake/help/latest/module/FindThreads.html
 find_package(Threads REQUIRED)
@@ -351,10 +317,6 @@ if(Qt5Widgets_FOUND)
   target_compile_options(libvis PUBLIC -DLIBVIS_HAVE_QT)
 endif()
 
-if (CMAKE_CUDA_COMPILER)
-  target_compile_options(libvis PUBLIC -DLIBVIS_HAVE_CUDA)
-endif()
-
 target_include_directories(libvis
   PUBLIC
     ${EIGEN3_INCLUDE_DIR}
@@ -384,7 +346,6 @@ target_link_directories(libvis PRIVATE
 target_link_libraries(libvis
   PUBLIC
     loguru
-    ${CUDA_cusolver_LIBRARY}  # Only for GPU path in lm_optimizer
     ${Qt5Widgets_LIBRARIES}
     ${Qt5Opengl_LIBRARIES}
     ${Qt5Core_LIBRARIES}
@@ -396,12 +357,6 @@ target_link_libraries(libvis
     png  #_static
     Threads::Threads
 )
-if(CMAKE_CUDA_COMPILER)
-  target_link_libraries(libvis
-    PUBLIC
-      ${CUDA_cusolver_LIBRARY}
-  )
-endif()
 if(VULKAN_FOUND)
   target_link_libraries(libvis PRIVATE
     vulkan
@@ -433,83 +388,6 @@ target_include_directories(libvis_external_io PUBLIC
   ${Boost_INCLUDE_DIR}
   libvis/third_party/
 )
-
-
-# libvis optional library: libvis_cuda.
-# Contains CUDA functionality, which is only useful with NVIDIA graphics cards.
-if (CMAKE_CUDA_COMPILER)
-  add_library(libvis_cuda SHARED
-    libvis/src/libvis/cuda/cuda_auto_tuner.h
-    libvis/src/libvis/cuda/cuda_buffer.cu
-    libvis/src/libvis/cuda/cuda_buffer.cuh
-    libvis/src/libvis/cuda/cuda_buffer.h
-    libvis/src/libvis/cuda/cuda_buffer_inl.h
-    libvis/src/libvis/cuda/cuda_matrix.cuh
-    libvis/src/libvis/cuda/cuda_unprojection_lookup.cuh
-    libvis/src/libvis/cuda/cuda_unprojection_lookup.h
-    libvis/src/libvis/cuda/cuda_util.h
-    libvis/src/libvis/cuda/patch_match_stereo.cc
-    libvis/src/libvis/cuda/patch_match_stereo.cu
-    libvis/src/libvis/cuda/patch_match_stereo.cuh
-    libvis/src/libvis/cuda/patch_match_stereo.h
-    libvis/src/libvis/cuda/patch_match_stereo_cost.cuh
-    libvis/src/libvis/cuda/patch_match_stereo_kernel_consistency.cu
-    libvis/src/libvis/cuda/patch_match_stereo_kernel_init.cu
-    libvis/src/libvis/cuda/patch_match_stereo_kernel_mutation.cu
-    libvis/src/libvis/cuda/patch_match_stereo_kernel_optimize.cu
-    libvis/src/libvis/cuda/patch_match_stereo_kernel_outliers.cu
-    libvis/src/libvis/cuda/patch_match_stereo_kernel_propagation.cu
-    libvis/src/libvis/cuda/patch_match_stereo_kernel_refinement.cu
-    libvis/src/libvis/cuda/patch_match_stereo_samples.cuh
-    libvis/src/libvis/cuda/patch_match_stereo_samples.cu
-    libvis/src/libvis/cuda/patch_match_stereo_util.cuh
-    libvis/src/libvis/cuda/pixel_corner_projector.cuh
-    libvis/src/libvis/cuda/pixel_corner_projector.h
-  )
-  set_property(TARGET libvis_cuda PROPERTY FOLDER "libvis")
-  target_include_directories(libvis_cuda PUBLIC
-    ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
-    ${OpenCV_INCLUDE_DIRS}
-  )
-  target_compile_options(libvis_cuda PRIVATE
-    "${LIBVIS_WARNING_OPTIONS}"
-    $<$<COMPILE_LANGUAGE:CXX>:-march=native>
-  )
-  target_link_libraries(libvis_cuda PUBLIC
-    libvis
-    CUDA::cublas
-  )
-  target_compile_options(libvis_cuda PRIVATE
-    $<$<COMPILE_LANGUAGE:CUDA>:-use_fast_math>
-    $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr>
-  )
-  # Turn on separable compilation. This is required to have extern __constant__ variables in headers.
-  set_target_properties(libvis_cuda
-    PROPERTIES CUDA_SEPARABLE_COMPILATION ON
-  )
-  
-  add_executable(libvis_cuda_test
-    libvis/src/libvis/cuda/test/cholesky_solver.cc
-    libvis/src/libvis/cuda/test/cholesky_solver.cu
-    libvis/src/libvis/cuda/test/cholesky_solver.cuh
-    libvis/src/libvis/cuda/test/main.cc
-  )
-  target_link_libraries(libvis_cuda_test PRIVATE
-    gtest_main
-    Threads::Threads
-    libvis_cuda
-  )
-  target_include_directories(libvis_cuda_test PRIVATE
-    ${gtest_SOURCE_DIR}/include
-    #${gtest_SOURCE_DIR}
-    ${OpenCV_INCLUDE_DIRS}
-    ${GLEW_INCLUDE_DIRS}
-  )
-  add_test(libvis_cuda_test
-    libvis_cuda_test
-  )
-endif()
-
 
 ################################################################################
 # Applications.
